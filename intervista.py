@@ -1,17 +1,17 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
 import sqlite3
-from fpdf import FPDF
 import os
 import datetime
+from fpdf import FPDF
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
+from tkinter import ttk
 
 def salva_dati():
     dati_cliente = {
-        "nome": entry_nome.get(),
-        "telefono": entry_telefono.get(),
-        "citta": entry_citta.get(),
+        "nome": entry_nome_var.get(),
+        "telefono": entry_telefono_var.get(),
+        "citta": entry_citta_var.get(),
         "tipologia_intervento": tipologia_intervento_var.get(),
         "tempi_consegna": tempi_consegna_var.get(),
         "bonus": bonus_var.get(),
@@ -19,34 +19,33 @@ def salva_dati():
         "richiesta": richiesta_var.get(),
         "accessori": accessori_var.get(),
         "smontaggio": smontaggio_var.get(),
-        "colore": entry_colore.get(),
-        "budget": budget_var.get(),
+        "colore": entry_colore_var.get(),
         "è_già_stato_da_un_altro_serramentista": è_già_stato_da_un_altro_serramentista_var.get(),
         "riconoscimento": riconoscimento_var.get(),
-        "cellulare": entry_cellulare.get(),
-        "indirizzo": entry_indirizzo.get(),
+        "cellulare": entry_cellulare_var.get(),
+        "indirizzo": entry_indirizzo_var.get(),
         "ha_la_cila_scia": ha_la_cila_scia_var.get(),
         "presenza_impresa": presenza_impresa_var.get(),
-        "note_bonus": entry_note_bonus.get(),
-        "consigliato_da": entry_consigliato_da.get(),
+        "note_bonus": entry_note_bonus_var.get(),
+        "consigliato_da": entry_consigliato_da_var.get(),
         "richiesta_alternativa": richiesta_alternativa_var.get(),
         "fornitore_accessori": fornitore_accessori_var.get(),
         "smaltimento": smaltimento_var.get(),
         "tipologia_posa": tipologia_posa_var.get(),
-        "cifra_precisa": entry_cifra_precisa.get(),
-        "chi": entry_chi.get(),
+        "cifra_precisa": entry_cifra_precisa_var.get(),
+        "chi": entry_chi_var.get(),
         "servito_da": servito_da_var.get(),
-        "email": entry_email.get(),
+        "email": entry_email_var.get(),
         "accessibilita_consegna": accessibilita_consegna_var.get(),
         "data_cila_scia": data_var.get(),
         "tipo_abitazione": tipo_abitazione_var.get(),
         "quantita_pezzi": quantita_pezzi_var.get(),
-        "mestiere": entry_mestiere.get(),
+        "mestiere": entry_mestiere_var.get(),
         "vetro": vetro_var.get(),
-        "note_accessori": entry_note_accessori.get(),
+        "note_accessori": entry_note_accessori_var.get(),
         "taglio_termico": taglio_termico_var.get(),
-        "note": entry_note.get(),
-        "invio_foto_misure": entry_invio.get(),
+        "note": entry_note_var.get(),
+        "invio_foto_misure": entry_invio_var.get(),
         "interesse": interesse_var.get()
     }
 
@@ -57,7 +56,7 @@ def salva_dati():
     c.execute('''CREATE TABLE IF NOT EXISTS clienti
                  (nome TEXT, telefono TEXT, citta TEXT)''')
 
-    c.execute("INSERT INTO clienti VALUES (:nome, :telefono, :citta, :tipologia_intervento, :tempi_consegna, :bonus, :canale_contatto, :richiesta, :accessori, :smontaggio, :colore, :budget, :è_già_stato_da_un_altro_serramentista, :riconoscimento, :cellulare, :indirizzo, :ha_la_cila_scia, :presenza_impresa, :note_bonus, :consigliato_da, :richiesta_alternativa, :fornitore_accessori, :smaltimento, :tipologia_posa, :cifra_precisa, :chi, :servito_da, :email, :accessibilita_consegna, :data_cila_scia, :tipo_abitazione, :quantita_pezzi, :mestiere, :vetro, :note_accessori, :taglio_termico, :note, :invio_foto_misure, :interesse)", dati_cliente)
+    c.execute("INSERT INTO clienti VALUES (:nome, :telefono, :citta, :tipologia_intervento, :tempi_consegna, :bonus, :canale_contatto, :richiesta, :accessori, :smontaggio, :colore, :è_già_stato_da_un_altro_serramentista, :riconoscimento, :cellulare, :indirizzo, :ha_la_cila_scia, :presenza_impresa, :note_bonus, :consigliato_da, :richiesta_alternativa, :fornitore_accessori, :smaltimento, :tipologia_posa, :cifra_precisa, :chi, :servito_da, :email, :accessibilita_consegna, :data_cila_scia, :tipo_abitazione, :quantita_pezzi, :mestiere, :vetro, :note_accessori, :taglio_termico, :note, :invio_foto_misure, :interesse)", dati_cliente)
     conn.commit()
     
     cliente_id = c.lastrowid
@@ -65,7 +64,6 @@ def salva_dati():
 
     export_pdf(cliente_id, dati_cliente["nome"])  
     messagebox.showinfo("Successo", "I dati sono stati salvati con successo.")
-
 
 def export_pdf(cliente_id, nome_cliente):
     pdf_folder_path = os.path.join(os.path.expanduser("~"), "Desktop", "3.0")
@@ -87,9 +85,10 @@ def export_pdf(cliente_id, nome_cliente):
 
     if cliente_info:
         pdf.set_font("Arial", style="B", size=14)
-        pdf.cell(0, 10, txt=f"Modulo di Raccolta Informazioni Cliente - {nome_cliente}", ln=True, align="C")  
+        pdf.cell(0, 10, txt=f"Modulo di Raccolta Informazioni Cliente - {nome_cliente}", ln=True, align="C")  # Aggiorna il titolo del PDF con il nome del cliente
         pdf.ln(10)
         
+        # Impostazione tabellare dei titoli delle colonne
         col_width = 60
         col_titles = [
             "Nome", "Telefono", "Città", "Tipologia Intervento", "Tempi di Consegna", "Bonus",
@@ -107,23 +106,42 @@ def export_pdf(cliente_id, nome_cliente):
             pdf.cell(col_width, 6, title + ":", border=0, ln=0, align="L")
             pdf.cell(col_width, 6, str(data), border=0, ln=0, align="L")
             row_counter += 3
+            # Aggiungi una nuova riga dopo ogni titolo
             if row_counter % 1 == 0:
                 pdf.ln()
+                # Se siamo arrivati a 26 righe, aggiungi una nuova pagina
                 if row_counter % 43 == 0:
                     pdf.add_page()
 
+        # Salvataggio del PDF
         pdf.output(pdf_file_path)
     else:
         messagebox.showerror("Errore", "Nessuna informazione trovata per il cliente.")
 
-def export_pdf(nome_cliente, dati_cliente):
-    # Impostazioni per il PDF
-    pdf_folder_path = os.path.join(os.path.expanduser("~"), "Desktop", "3.0")
-    timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    pdf_file_path = os.path.join(pdf_folder_path, f"{nome_cliente}_{timestamp}.pdf")
+def crea_cartella(servito_da, nome_cliente, data_ora_compilazione):
+    # Percorso specifico basato sulla risposta alla domanda "servito da"
+    percorsi_servito_da = {
+        "luca": "\\192.168.1.81\public\Condivisa\A1 PREVENTIVI\1 LUCA Preventivi 2024",
+        "donatella": "\\192.168.1.81\public\Condivisa\A1 PREVENTIVI\2 DONATELLA Preventivi 2024",
+        "antonio": "\\192.168.1.81\public\Condivisa\A1 PREVENTIVI\4 ANTONIO Preventivi 2024",
+        "pasquale": "\\192.168.1.81\public\Condivisa\A1 PREVENTIVI\3 PASQUALE Preventivi 2024",
+        "gina": "\\192.168.1.81\public\Condivisa\A1 PREVENTIVI\5 GINA Preventivi 2024"
+    }
+
+    if servito_da.lower() in percorsi_servito_da:
+        percorso_base = percorsi_servito_da[servito_da.lower()]
+        percorso_cartella = os.path.join(percorso_base, f"{nome_cliente}_{data_ora_compilazione}")
+        os.makedirs(percorso_cartella)
+        return percorso_cartella
+    else:
+        messagebox.showerror("Errore", f"Percorso non trovato per '{servito_da}'.")
+
+def create_new_pdf(client_name, data):
+    # Nome del nuovo PDF
+    pdf_filename = f"{client_name}_abaco_infissi.pdf"
 
     # Creazione del documento PDF
-    c = canvas.Canvas(pdf_file_path, pagesize=letter)
+    c = canvas.Canvas(pdf_filename, pagesize=letter)
 
     # Definizione delle dimensioni della tabella
     col_widths = [100, 70, 50, 50, 50, 180]
@@ -136,24 +154,31 @@ def export_pdf(nome_cliente, dati_cliente):
     for i, title in enumerate(column_titles):
         c.drawString((i * col_widths[i]) + 10, 770, title)
 
-    # Aggiunta dei dati alla tabella
-    data_row = [
-        dati_cliente["riferimento_infissi"],
-        dati_cliente["tipo"],
-        dati_cliente["Lmm"],
-        dati_cliente["Hmm"],
-        dati_cliente["risposte"],
-        dati_cliente["note_infissi"]
-    ]
-    for i, cell_data in enumerate(data_row):
-        c.drawString((i * col_widths[i]) + 10, 750, str(cell_data))
+    # Aggiunta delle informazioni dal DataFrame
+    for row_index, row_data in enumerate(data):
+        for col_index, cell_data in enumerate(row_data):
+            c.drawString((col_index * col_widths[col_index]) + 10, 750 - ((row_index + 1) * row_height), str(cell_data))
 
     # Aggiunta del titolo del documento
     c.setFont("Helvetica-Bold", 16)
-    c.drawString(200, 800, f"Abaco Infissi - {nome_cliente}")
+    c.drawString(200, 800, "Abaco Infissi - " + client_name)
 
     # Salvataggio del PDF
     c.save()
+
+# Esempio di utilizzo
+client_name = "Nome Cliente"
+data = [
+    ["Riferimento 1", "Tipo 1", "100", "200", "Spuntato", "Note 1"],
+    ["Riferimento 2", "Tipo 2", "150", "250", "Non spuntato", "Note 2"],
+    # Aggiungere altre righe di dati se necessario
+]
+
+create_new_pdf(client_name, data)
+
+root = tk.Tk()
+root.title("Modulo di Raccolta Informazioni Cliente")
+root.geometry("1000x400")
 
 root = tk.Tk()
 root.title("Modulo di Raccolta Informazioni Cliente")
