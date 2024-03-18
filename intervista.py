@@ -1,51 +1,53 @@
 import tkinter as tk
+from tkinter import ttk, messagebox
 import sqlite3
+from fpdf import FPDF
 import os
 import datetime
-from fpdf import FPDF
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
-from tkinter import ttk
+from reportlab.pdfgen.canvas import Canvas
 
 def salva_dati():
     dati_cliente = {
-        "nome": entry_nome_var.get(),
-        "telefono": entry_telefono_var.get(),
-        "citta": entry_citta_var.get(),
+        "nome": entry_nome.get(),
+        "telefono": entry_telefono.get(),
+        "citta": entry_citta.get(),
         "tipologia_intervento": tipologia_intervento_var.get(),
         "tempi_consegna": tempi_consegna_var.get(),
         "bonus": bonus_var.get(),
         "canale_contatto": canale_contatto_var.get(),
         "richiesta": richiesta_var.get(),
-        "accessori": accessori_var.get(),
+        "optional": optional_var.get(),
         "smontaggio": smontaggio_var.get(),
-        "colore": entry_colore_var.get(),
+        "colore": entry_colore.get(),
+        "budget": budget_var.get(),
         "è_già_stato_da_un_altro_serramentista": è_già_stato_da_un_altro_serramentista_var.get(),
         "riconoscimento": riconoscimento_var.get(),
-        "cellulare": entry_cellulare_var.get(),
-        "indirizzo": entry_indirizzo_var.get(),
+        "cellulare": entry_cellulare.get(),
+        "indirizzo": entry_indirizzo.get(),
         "ha_la_cila_scia": ha_la_cila_scia_var.get(),
         "presenza_impresa": presenza_impresa_var.get(),
-        "note_bonus": entry_note_bonus_var.get(),
-        "consigliato_da": entry_consigliato_da_var.get(),
+        "note_bonus": entry_note_bonus.get(),
+        "consigliato_da": entry_consigliato_da.get(),
         "richiesta_alternativa": richiesta_alternativa_var.get(),
         "fornitore_accessori": fornitore_accessori_var.get(),
         "smaltimento": smaltimento_var.get(),
         "tipologia_posa": tipologia_posa_var.get(),
-        "cifra_precisa": entry_cifra_precisa_var.get(),
-        "chi": entry_chi_var.get(),
+        "cifra_precisa": entry_cifra_precisa.get(),
+        "chi": entry_chi.get(),
         "servito_da": servito_da_var.get(),
-        "email": entry_email_var.get(),
+        "email": entry_email.get(),
         "accessibilita_consegna": accessibilita_consegna_var.get(),
         "data_cila_scia": data_var.get(),
         "tipo_abitazione": tipo_abitazione_var.get(),
         "quantita_pezzi": quantita_pezzi_var.get(),
-        "mestiere": entry_mestiere_var.get(),
+        "mestiere": entry_mestiere.get(),
         "vetro": vetro_var.get(),
-        "note_accessori": entry_note_accessori_var.get(),
+        "note_accessori": entry_note_accessori.get(),
         "taglio_termico": taglio_termico_var.get(),
-        "note": entry_note_var.get(),
-        "invio_foto_misure": entry_invio_var.get(),
+        "note": entry_note.get(),
+        "invio_foto_misure": entry_invio.get(),
         "interesse": interesse_var.get()
     }
 
@@ -53,22 +55,28 @@ def salva_dati():
     conn = sqlite3.connect(db_file_path)
     c = conn.cursor()
 
+    # Crea la tabella se non esiste
     c.execute('''CREATE TABLE IF NOT EXISTS clienti
                  (nome TEXT, telefono TEXT, citta TEXT)''')
 
-    c.execute("INSERT INTO clienti VALUES (:nome, :telefono, :citta, :tipologia_intervento, :tempi_consegna, :bonus, :canale_contatto, :richiesta, :accessori, :smontaggio, :colore, :è_già_stato_da_un_altro_serramentista, :riconoscimento, :cellulare, :indirizzo, :ha_la_cila_scia, :presenza_impresa, :note_bonus, :consigliato_da, :richiesta_alternativa, :fornitore_accessori, :smaltimento, :tipologia_posa, :cifra_precisa, :chi, :servito_da, :email, :accessibilita_consegna, :data_cila_scia, :tipo_abitazione, :quantita_pezzi, :mestiere, :vetro, :note_accessori, :taglio_termico, :note, :invio_foto_misure, :interesse)", dati_cliente)
+    # Inserisci i dati nel database
+    c.execute("INSERT INTO clienti VALUES (:nome, :telefono, :citta, :tipologia_intervento, :tempi_consegna, :bonus, :canale_contatto, :richiesta, :optional, :smontaggio, :colore, :budget, :è_già_stato_da_un_altro_serramentista, :riconoscimento, :cellulare, :indirizzo, :ha_la_cila_scia, :presenza_impresa, :note_bonus, :consigliato_da, :richiesta_alternativa, :fornitore_accessori, :smaltimento, :tipologia_posa, :cifra_precisa, :chi, :servito_da, :email, :accessibilita_consegna, :data_cila_scia, :tipo_abitazione, :quantita_pezzi, :mestiere, :vetro, :note_accessori, :taglio_termico, :note, :invio_foto_misure, :interesse)", dati_cliente)
     conn.commit()
     
     cliente_id = c.lastrowid
     conn.close()
+    cartella_cliente = crea_cartella(dati_cliente["servito_da"], dati_cliente["nome"], datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
 
-    export_pdf(cliente_id, dati_cliente["nome"])  
-    messagebox.showinfo("Successo", "I dati sono stati salvati con successo.")
+    if cartella_cliente:
+        create_new_pdf(dati_cliente["nome"], dati_cliente, cartella_cliente)
+        messagebox.showinfo("Successo", "I dati sono stati salvati con successo.")
+        export_pdf(cliente_id, dati_cliente["nome"], cartella_cliente)  
+    else:
+        messagebox.showerror("Errore", "Impossibile creare la cartella per il cliente.")
 
-def export_pdf(cliente_id, nome_cliente):
-    pdf_folder_path = os.path.join(os.path.expanduser("~"), "Desktop", "3.0")
+def export_pdf(cliente_id, nome_cliente, cartella_destinazione):  
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    pdf_file_path = os.path.join(pdf_folder_path, f"{nome_cliente}_{cliente_id}_{timestamp}.pdf")  
+    pdf_file_path = os.path.join(cartella_destinazione, f"{nome_cliente}_{cliente_id}_{timestamp}.pdf")  
 
     db_file_path = os.path.join(os.path.expanduser("~"), "Desktop", "3.0", "clienti.db")
     conn = sqlite3.connect(db_file_path)
@@ -87,12 +95,11 @@ def export_pdf(cliente_id, nome_cliente):
         pdf.set_font("Arial", style="B", size=14)
         pdf.cell(0, 10, txt=f"Modulo di Raccolta Informazioni Cliente - {nome_cliente}", ln=True, align="C")  # Aggiorna il titolo del PDF con il nome del cliente
         pdf.ln(10)
-        
-        # Impostazione tabellare dei titoli delle colonne
+
         col_width = 60
         col_titles = [
             "Nome", "Telefono", "Città", "Tipologia Intervento", "Tempi di Consegna", "Bonus",
-            "Canale Contatto", "Richiesta", "Accessori", "Smontaggio", "Colore", "Budget",
+            "Canale Contatto", "Richiesta", "Optional", "Smontaggio", "Colore", "Budget",
             "Stato dalla Concorrenza", "Riconoscimento", "Cellulare", "Indirizzo",
             "Ha la CILA/SCIA", "Presenza Impresa", "Note Bonus", "Consigliato Da", "Richiesta Alternativa",
             "Fornitore Accessori", "Smaltimento", "Tipologia Posa", "Cifra Precisa", "Chi",
@@ -113,7 +120,6 @@ def export_pdf(cliente_id, nome_cliente):
                 if row_counter % 43 == 0:
                     pdf.add_page()
 
-        # Salvataggio del PDF
         pdf.output(pdf_file_path)
     else:
         messagebox.showerror("Errore", "Nessuna informazione trovata per il cliente.")
@@ -121,11 +127,11 @@ def export_pdf(cliente_id, nome_cliente):
 def crea_cartella(servito_da, nome_cliente, data_ora_compilazione):
     # Percorso specifico basato sulla risposta alla domanda "servito da"
     percorsi_servito_da = {
-        "luca": "\\192.168.1.81\public\Condivisa\A1 PREVENTIVI\1 LUCA Preventivi 2024",
-        "donatella": "\\192.168.1.81\public\Condivisa\A1 PREVENTIVI\2 DONATELLA Preventivi 2024",
-        "antonio": "\\192.168.1.81\public\Condivisa\A1 PREVENTIVI\4 ANTONIO Preventivi 2024",
-        "pasquale": "\\192.168.1.81\public\Condivisa\A1 PREVENTIVI\3 PASQUALE Preventivi 2024",
-        "gina": "\\192.168.1.81\public\Condivisa\A1 PREVENTIVI\5 GINA Preventivi 2024"
+        "luca": r"\\192.168.1.81\public\Condivisa\A1 PREVENTIVI\1 LUCA Preventivi 2024",
+        "donatella": r"\\192.168.1.81\public\Condivisa\A1 PREVENTIVI\2 DONATELLA Preventivi 2024",
+        "antonio": r"\\192.168.1.81\public\Condivisa\A1 PREVENTIVI\4 ANTONIO Preventivi 2024",
+        "pasquale": r"\\192.168.1.81\public\Condivisa\A1 PREVENTIVI\3 PASQUALE Preventivi 2024",
+        "gina": r"\\192.168.1.81\public\Condivisa\A1 PREVENTIVI\5 GINA Preventivi 2024"
     }
 
     if servito_da.lower() in percorsi_servito_da:
@@ -136,54 +142,58 @@ def crea_cartella(servito_da, nome_cliente, data_ora_compilazione):
     else:
         messagebox.showerror("Errore", f"Percorso non trovato per '{servito_da}'.")
 
-def create_new_pdf(client_name, data):
-    # Nome del nuovo PDF
-    pdf_filename = f"{client_name}_abaco_infissi.pdf"
+def create_new_pdf(client_name, data, cartella_destinazione):
+    pdf_filename = os.path.join(cartella_destinazione, f"{client_name}_abaco_infissi.pdf")
+    
+    # Rimuovi la creazione del documento PDF iniziale
+    # c = Canvas(pdf_filename, pagesize=letter)
 
     # Creazione del documento PDF
-    c = canvas.Canvas(pdf_filename, pagesize=letter)
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", size=12)
 
-    # Definizione delle dimensioni della tabella
-    col_widths = [100, 70, 50, 50, 50, 180]
-    row_height = 20
+    info = [
+        data["riferimento"],
+        data["tipo"],
+        data["L"],
+        data["H"],
+        data["accessori"],
+        data["note"]
+    ]
 
-    # Definizione dei titoli delle colonne
-    column_titles = ["Riferimento infissi", "Tipo", "Lmm", "Hmm", "Risposte", "Note"]
+    # Titoli delle colonne
+    column_titles = ["Riferimento", "Tipo", "Lmm", "Hmm", "Accessori", "Note"]
 
-    # Aggiunta dei titoli alla prima riga della tabella
-    for i, title in enumerate(column_titles):
-        c.drawString((i * col_widths[i]) + 10, 770, title)
+    # Posizione iniziale per l'inserimento delle celle
+    x_position = 10
+    y_position = 10
 
-    # Aggiunta delle informazioni dal DataFrame
-    for row_index, row_data in enumerate(data):
-        for col_index, cell_data in enumerate(row_data):
-            c.drawString((col_index * col_widths[col_index]) + 10, 750 - ((row_index + 1) * row_height), str(cell_data))
+    # Inserisci i titoli delle colonne
+    for title in column_titles:
+        pdf.set_xy(x_position, y_position)
+        pdf.cell(40, 10, title, border=1)
+        x_position += 40
 
-    # Aggiunta del titolo del documento
-    c.setFont("Helvetica-Bold", 16)
-    c.drawString(200, 800, "Abaco Infissi - " + client_name)
+    # Resetta la posizione x
+    x_position = 10
+    y_position += 10
 
-    # Salvataggio del PDF
-    c.save()
+    # Inserisci le informazioni nel PDF
+    for item in info:
+        pdf.set_xy(x_position, y_position)
+        pdf.cell(40, 10, str(item), border=1)
+        x_position += 40
 
-# Esempio di utilizzo
-client_name = "Nome Cliente"
-data = [
-    ["Riferimento 1", "Tipo 1", "100", "200", "Spuntato", "Note 1"],
-    ["Riferimento 2", "Tipo 2", "150", "250", "Non spuntato", "Note 2"],
-    # Aggiungere altre righe di dati se necessario
-]
-
-create_new_pdf(client_name, data)
+    # Salva il PDF
+    pdf.output(pdf_filename)
+    messagebox.showinfo("Successo", "PDF creato con successo.")
 
 root = tk.Tk()
 root.title("Modulo di Raccolta Informazioni Cliente")
 root.geometry("1000x400")
 
-root = tk.Tk()
-root.title("Modulo di Raccolta Informazioni Cliente")
-root.geometry("1000x400")
-
+# Variabili per caselle di testo
 entry_nome_var = tk.StringVar(root)
 entry_telefono_var = tk.StringVar(root)
 entry_citta_var = tk.StringVar(root)
@@ -200,12 +210,13 @@ entry_note_accessori_var = tk.StringVar(root)
 entry_note_var = tk.StringVar(root)
 entry_invio_var = tk.StringVar(root)
 
+# Variabili per menu a discesa
 tipologia_intervento_var = tk.StringVar(root)
 tempi_consegna_var = tk.StringVar(root)
 bonus_var = tk.StringVar(root)
 canale_contatto_var = tk.StringVar(root)
 richiesta_var = tk.StringVar(root)
-accessori_var = tk.StringVar(root)
+optional_var = tk.StringVar(root)
 smontaggio_var = tk.StringVar(root)
 è_già_stato_da_un_altro_serramentista_var = tk.StringVar(root)
 riconoscimento_var = tk.StringVar(root)
@@ -223,12 +234,14 @@ vetro_var = tk.StringVar(root)
 taglio_termico_var = tk.StringVar(root)
 interesse_var = tk.StringVar(root)
 
-richiesta_alternativa_boolean_var = tk.BooleanVar(root)
-ha_la_cila_scia_boolean_var = tk.BooleanVar(root)
-presenza_impresa_boolean_var = tk.BooleanVar(root)
-taglio_termico_boolean_var = tk.BooleanVar(root)
-interesse_boolean_var = tk.BooleanVar(root)
+# Variabili per caselle di controllo
+richiesta_alternativa_var = tk.BooleanVar(root)
+ha_la_cila_scia_var = tk.BooleanVar(root)
+presenza_impresa_var = tk.BooleanVar(root)
+taglio_termico_var = tk.BooleanVar(root)
+interesse_var = tk.BooleanVar(root)
 
+# Altre variabili necessarie
 data_var = tk.StringVar(root)
 
 canvas = tk.Canvas(root)
@@ -315,11 +328,11 @@ richiesta_var.set("")
 option_menu_richiesta = ttk.Combobox(frame_colonna1, textvariable=richiesta_var, values=["", "QFORT 4 STARS", "QFORT 4 STARS VIEW", "QFORT 7 STARS", "QFORT 7 STARS VIEW", "QFORT 5 STARS", "QFORT 5 STARS VIEW", "QFORT 6 STARS", "QFORT 6 STARS VIEW", "ARROGANCE", "ISIK A", "ISIK A PLUS", "ISIK Ae", "ISIK Ae PLUS" , "ISIK SE", "ISIK SE PLUS", "OKULTA", "THERMA", "ASTRA", "DE CARLO HIDDEN", "DE CARLO 68 ARTE OG", "DE CARLO 68 DESIGN", "DE CARLO LEGNO", "DE CARLO LEGNO/ALU", "ALTRO"], width=20)
 option_menu_richiesta.grid(column=0, row=15, sticky=(tk.W, tk.E), padx=5, pady=5)
 
-ttk.Label(frame_colonna1, text="ACCESSORI:").grid(column=0, row=16, sticky=tk.W)
-accessori_var = tk.StringVar(root)
-accessori_var.set("")  
-option_menu_accessori = ttk.Combobox(frame_colonna1, textvariable=accessori_var, values=["", "Cassonetti", "Avvolgibili", "Cassonetti e Avvolgibili", "Zanzariere", "Cassonetti e Zanzariere", "Avvolgibili e Zanzariere", "Cassonetti, Avvolgibili e Zanzariere"], width=21)
-option_menu_accessori.grid(column=0, row=17, sticky=(tk.W, tk.E), padx=5, pady=5)
+ttk.Label(frame_colonna1, text="OPTIONAL:").grid(column=0, row=16, sticky=tk.W)
+optional_var = tk.StringVar(root)
+optional_var.set("")  
+option_menu_optional = ttk.Combobox(frame_colonna1, textvariable=optional_var, values=["", "Cassonetti", "Avvolgibili", "Cassonetti e Avvolgibili", "Zanzariere", "Cassonetti e Zanzariere", "Avvolgibili e Zanzariere", "Cassonetti, Avvolgibili e Zanzariere"], width=21)
+option_menu_optional.grid(column=0, row=17, sticky=(tk.W, tk.E), padx=5, pady=5)
 
 ttk.Label(frame_colonna1, text="SMONTAGGIO:").grid(column=0, row=18, sticky=tk.W)
 smontaggio_var = tk.StringVar(root)
@@ -531,67 +544,67 @@ entry_13.grid(column=0, row=25, sticky=(tk.W, tk.E), padx=5, pady=5)
 ttk.Label(frame_colonna5, text="tipo").grid(column=0, row=0, sticky=tk.W)
 tipo_var = tk.StringVar(root)
 tipo_var.set("")
-ttk.Combobox(frame_colonna5, textvariable=tipo_var, values=["", "F1", "F2", "F3", "F4", "PF1", "PF2", "PF3", "PF4", "SCORREVOLE", "SCORREVOLE TRASLANTE", "SCORREVOLE ALZANTE", "BLINDATA", "BLINDATA 2 ANTE", "PORTA D'INGRESSO", "PORTA VERANDA", "VASISTAS", "VASISTAS MOTORIZZATO"], width=2).grid(column=0, row=1, sticky=(tk.W, tk.E), padx=5, pady=5)
+ttk.Combobox(frame_colonna5, textvariable=tipo_var, values=["", "F1", "F2", "F3", "F4", "PF1", "PF2", "PF3", "PF4", "SCORREVOLE", "SCORREVOLE TRASLANTE", "SCORREVOLE ALZANTE", "BLINDATA", "BLINDATA 2 ANTE", "PORTA D'INGRESSO", "PORTA VERANDA", "VASISTAS", "VASISTAS MOTORIZZATO"], width=3).grid(column=0, row=1, sticky=(tk.W, tk.E), padx=5, pady=5)
 
 ttk.Label(frame_colonna5, text="tipo").grid(column=0, row=2, sticky=tk.W)
 tipo_var = tk.StringVar(root)
 tipo_var.set("")
-ttk.Combobox(frame_colonna5, textvariable=tipo_var, values=["", "F1", "F2", "F3", "F4", "PF1", "PF2", "PF3", "PF4", "SCORREVOLE", "SCORREVOLE TRASLANTE", "SCORREVOLE ALZANTE", "BLINDATA", "BLINDATA 2 ANTE", "PORTA D'INGRESSO", "PORTA VERANDA", "VASISTAS", "VASISTAS MOTORIZZATO"], width=2).grid(column=0, row=3, sticky=(tk.W, tk.E), padx=5, pady=5)
+ttk.Combobox(frame_colonna5, textvariable=tipo_var, values=["", "F1", "F2", "F3", "F4", "PF1", "PF2", "PF3", "PF4", "SCORREVOLE", "SCORREVOLE TRASLANTE", "SCORREVOLE ALZANTE", "BLINDATA", "BLINDATA 2 ANTE", "PORTA D'INGRESSO", "PORTA VERANDA", "VASISTAS", "VASISTAS MOTORIZZATO"], width=3).grid(column=0, row=3, sticky=(tk.W, tk.E), padx=5, pady=5)
 
 ttk.Label(frame_colonna5, text="tipo").grid(column=0, row=4, sticky=tk.W)
 tipo_var = tk.StringVar(root)
 tipo_var.set("")
-ttk.Combobox(frame_colonna5, textvariable=tipo_var, values=["", "F1", "F2", "F3", "F4", "PF1", "PF2", "PF3", "PF4", "SCORREVOLE", "SCORREVOLE TRASLANTE", "SCORREVOLE ALZANTE", "BLINDATA", "BLINDATA 2 ANTE", "PORTA D'INGRESSO", "PORTA VERANDA", "VASISTAS", "VASISTAS MOTORIZZATO"], width=2).grid(column=0, row=5, sticky=(tk.W, tk.E), padx=5, pady=5)
+ttk.Combobox(frame_colonna5, textvariable=tipo_var, values=["", "F1", "F2", "F3", "F4", "PF1", "PF2", "PF3", "PF4", "SCORREVOLE", "SCORREVOLE TRASLANTE", "SCORREVOLE ALZANTE", "BLINDATA", "BLINDATA 2 ANTE", "PORTA D'INGRESSO", "PORTA VERANDA", "VASISTAS", "VASISTAS MOTORIZZATO"], width=3).grid(column=0, row=5, sticky=(tk.W, tk.E), padx=5, pady=5)
 
 ttk.Label(frame_colonna5, text="tipo").grid(column=0, row=6, sticky=tk.W)
 tipo_var = tk.StringVar(root)
 tipo_var.set("")
-ttk.Combobox(frame_colonna5, textvariable=tipo_var, values=["", "F1", "F2", "F3", "F4", "PF1", "PF2", "PF3", "PF4", "SCORREVOLE", "SCORREVOLE TRASLANTE", "SCORREVOLE ALZANTE", "BLINDATA", "BLINDATA 2 ANTE", "PORTA D'INGRESSO", "PORTA VERANDA", "VASISTAS", "VASISTAS MOTORIZZATO"], width=2).grid(column=0, row=7, sticky=(tk.W, tk.E), padx=5, pady=5)
+ttk.Combobox(frame_colonna5, textvariable=tipo_var, values=["", "F1", "F2", "F3", "F4", "PF1", "PF2", "PF3", "PF4", "SCORREVOLE", "SCORREVOLE TRASLANTE", "SCORREVOLE ALZANTE", "BLINDATA", "BLINDATA 2 ANTE", "PORTA D'INGRESSO", "PORTA VERANDA", "VASISTAS", "VASISTAS MOTORIZZATO"], width=3).grid(column=0, row=7, sticky=(tk.W, tk.E), padx=5, pady=5)
 
 ttk.Label(frame_colonna5, text="tipo").grid(column=0, row=8, sticky=tk.W)
 tipo_var = tk.StringVar(root)
 tipo_var.set("")
-ttk.Combobox(frame_colonna5, textvariable=tipo_var, values=["", "F1", "F2", "F3", "F4", "PF1", "PF2", "PF3", "PF4", "SCORREVOLE", "SCORREVOLE TRASLANTE", "SCORREVOLE ALZANTE", "BLINDATA", "BLINDATA 2 ANTE", "PORTA D'INGRESSO", "PORTA VERANDA", "VASISTAS", "VASISTAS MOTORIZZATO"], width=2).grid(column=0, row=9, sticky=(tk.W, tk.E), padx=5, pady=5)
+ttk.Combobox(frame_colonna5, textvariable=tipo_var, values=["", "F1", "F2", "F3", "F4", "PF1", "PF2", "PF3", "PF4", "SCORREVOLE", "SCORREVOLE TRASLANTE", "SCORREVOLE ALZANTE", "BLINDATA", "BLINDATA 2 ANTE", "PORTA D'INGRESSO", "PORTA VERANDA", "VASISTAS", "VASISTAS MOTORIZZATO"], width=3).grid(column=0, row=9, sticky=(tk.W, tk.E), padx=5, pady=5)
 
 ttk.Label(frame_colonna5, text="tipo").grid(column=0, row=10, sticky=tk.W)
 tipo_var = tk.StringVar(root)
 tipo_var.set("")
-ttk.Combobox(frame_colonna5, textvariable=tipo_var, values=["", "F1", "F2", "F3", "F4", "PF1", "PF2", "PF3", "PF4", "SCORREVOLE", "SCORREVOLE TRASLANTE", "SCORREVOLE ALZANTE", "BLINDATA", "BLINDATA 2 ANTE", "PORTA D'INGRESSO", "PORTA VERANDA", "VASISTAS", "VASISTAS MOTORIZZATO"], width=2).grid(column=0, row=11, sticky=(tk.W, tk.E), padx=5, pady=5)
+ttk.Combobox(frame_colonna5, textvariable=tipo_var, values=["", "F1", "F2", "F3", "F4", "PF1", "PF2", "PF3", "PF4", "SCORREVOLE", "SCORREVOLE TRASLANTE", "SCORREVOLE ALZANTE", "BLINDATA", "BLINDATA 2 ANTE", "PORTA D'INGRESSO", "PORTA VERANDA", "VASISTAS", "VASISTAS MOTORIZZATO"], width=3).grid(column=0, row=11, sticky=(tk.W, tk.E), padx=5, pady=5)
 
 ttk.Label(frame_colonna5, text="tipo").grid(column=0, row=12, sticky=tk.W)
 tipo_var = tk.StringVar(root)
 tipo_var.set("")
-ttk.Combobox(frame_colonna5, textvariable=tipo_var, values=["", "F1", "F2", "F3", "F4", "PF1", "PF2", "PF3", "PF4", "SCORREVOLE", "SCORREVOLE TRASLANTE", "SCORREVOLE ALZANTE", "BLINDATA", "BLINDATA 2 ANTE", "PORTA D'INGRESSO", "PORTA VERANDA", "VASISTAS", "VASISTAS MOTORIZZATO"], width=2).grid(column=0, row=13, sticky=(tk.W, tk.E), padx=5, pady=5)
+ttk.Combobox(frame_colonna5, textvariable=tipo_var, values=["", "F1", "F2", "F3", "F4", "PF1", "PF2", "PF3", "PF4", "SCORREVOLE", "SCORREVOLE TRASLANTE", "SCORREVOLE ALZANTE", "BLINDATA", "BLINDATA 2 ANTE", "PORTA D'INGRESSO", "PORTA VERANDA", "VASISTAS", "VASISTAS MOTORIZZATO"], width=3).grid(column=0, row=13, sticky=(tk.W, tk.E), padx=5, pady=5)
 
 ttk.Label(frame_colonna5, text="tipo").grid(column=0, row=14, sticky=tk.W)
 tipo_var = tk.StringVar(root)
 tipo_var.set("")
-ttk.Combobox(frame_colonna5, textvariable=tipo_var, values=["", "F1", "F2", "F3", "F4", "PF1", "PF2", "PF3", "PF4", "SCORREVOLE", "SCORREVOLE TRASLANTE", "SCORREVOLE ALZANTE", "BLINDATA", "BLINDATA 2 ANTE", "PORTA D'INGRESSO", "PORTA VERANDA", "VASISTAS", "VASISTAS MOTORIZZATO"], width=2).grid(column=0, row=15, sticky=(tk.W, tk.E), padx=5, pady=5)
+ttk.Combobox(frame_colonna5, textvariable=tipo_var, values=["", "F1", "F2", "F3", "F4", "PF1", "PF2", "PF3", "PF4", "SCORREVOLE", "SCORREVOLE TRASLANTE", "SCORREVOLE ALZANTE", "BLINDATA", "BLINDATA 2 ANTE", "PORTA D'INGRESSO", "PORTA VERANDA", "VASISTAS", "VASISTAS MOTORIZZATO"], width=3).grid(column=0, row=15, sticky=(tk.W, tk.E), padx=5, pady=5)
 
 ttk.Label(frame_colonna5, text="tipo").grid(column=0, row=16, sticky=tk.W)
 tipo_var = tk.StringVar(root)
 tipo_var.set("")
-ttk.Combobox(frame_colonna5, textvariable=tipo_var, values=["", "F1", "F2", "F3", "F4", "PF1", "PF2", "PF3", "PF4", "SCORREVOLE", "SCORREVOLE TRASLANTE", "SCORREVOLE ALZANTE", "BLINDATA", "BLINDATA 2 ANTE", "PORTA D'INGRESSO", "PORTA VERANDA", "VASISTAS", "VASISTAS MOTORIZZATO"], width=2).grid(column=0, row=17, sticky=(tk.W, tk.E), padx=5, pady=5)
+ttk.Combobox(frame_colonna5, textvariable=tipo_var, values=["", "F1", "F2", "F3", "F4", "PF1", "PF2", "PF3", "PF4", "SCORREVOLE", "SCORREVOLE TRASLANTE", "SCORREVOLE ALZANTE", "BLINDATA", "BLINDATA 2 ANTE", "PORTA D'INGRESSO", "PORTA VERANDA", "VASISTAS", "VASISTAS MOTORIZZATO"], width=3).grid(column=0, row=17, sticky=(tk.W, tk.E), padx=5, pady=5)
 
 ttk.Label(frame_colonna5, text="tipo").grid(column=0, row=18, sticky=tk.W)
 tipo_var = tk.StringVar(root)
 tipo_var.set("")
-ttk.Combobox(frame_colonna5, textvariable=tipo_var, values=["", "F1", "F2", "F3", "F4", "PF1", "PF2", "PF3", "PF4", "SCORREVOLE", "SCORREVOLE TRASLANTE", "SCORREVOLE ALZANTE", "BLINDATA", "BLINDATA 2 ANTE", "PORTA D'INGRESSO", "PORTA VERANDA", "VASISTAS", "VASISTAS MOTORIZZATO"], width=2).grid(column=0, row=19, sticky=(tk.W, tk.E), padx=5, pady=5)
+ttk.Combobox(frame_colonna5, textvariable=tipo_var, values=["", "F1", "F2", "F3", "F4", "PF1", "PF2", "PF3", "PF4", "SCORREVOLE", "SCORREVOLE TRASLANTE", "SCORREVOLE ALZANTE", "BLINDATA", "BLINDATA 2 ANTE", "PORTA D'INGRESSO", "PORTA VERANDA", "VASISTAS", "VASISTAS MOTORIZZATO"], width=3).grid(column=0, row=19, sticky=(tk.W, tk.E), padx=5, pady=5)
 
 ttk.Label(frame_colonna5, text="tipo").grid(column=0, row=20, sticky=tk.W)
 tipo_var = tk.StringVar(root)
 tipo_var.set("")
-ttk.Combobox(frame_colonna5, textvariable=tipo_var, values=["", "F1", "F2", "F3", "F4", "PF1", "PF2", "PF3", "PF4", "SCORREVOLE", "SCORREVOLE TRASLANTE", "SCORREVOLE ALZANTE", "BLINDATA", "BLINDATA 2 ANTE", "PORTA D'INGRESSO", "PORTA VERANDA", "VASISTAS", "VASISTAS MOTORIZZATO"], width=2).grid(column=0, row=21, sticky=(tk.W, tk.E), padx=5, pady=5)
+ttk.Combobox(frame_colonna5, textvariable=tipo_var, values=["", "F1", "F2", "F3", "F4", "PF1", "PF2", "PF3", "PF4", "SCORREVOLE", "SCORREVOLE TRASLANTE", "SCORREVOLE ALZANTE", "BLINDATA", "BLINDATA 2 ANTE", "PORTA D'INGRESSO", "PORTA VERANDA", "VASISTAS", "VASISTAS MOTORIZZATO"], width=3).grid(column=0, row=21, sticky=(tk.W, tk.E), padx=5, pady=5)
 
 ttk.Label(frame_colonna5, text="tipo").grid(column=0, row=22, sticky=tk.W)
 tipo_var = tk.StringVar(root)
 tipo_var.set("")
-ttk.Combobox(frame_colonna5, textvariable=tipo_var, values=["", "F1", "F2", "F3", "F4", "PF1", "PF2", "PF3", "PF4", "SCORREVOLE", "SCORREVOLE TRASLANTE", "SCORREVOLE ALZANTE", "BLINDATA", "BLINDATA 2 ANTE", "PORTA D'INGRESSO", "PORTA VERANDA", "VASISTAS", "VASISTAS MOTORIZZATO"], width=2).grid(column=0, row=23, sticky=(tk.W, tk.E), padx=5, pady=5)
+ttk.Combobox(frame_colonna5, textvariable=tipo_var, values=["", "F1", "F2", "F3", "F4", "PF1", "PF2", "PF3", "PF4", "SCORREVOLE", "SCORREVOLE TRASLANTE", "SCORREVOLE ALZANTE", "BLINDATA", "BLINDATA 2 ANTE", "PORTA D'INGRESSO", "PORTA VERANDA", "VASISTAS", "VASISTAS MOTORIZZATO"], width=3).grid(column=0, row=23, sticky=(tk.W, tk.E), padx=5, pady=5)
 
 ttk.Label(frame_colonna5, text="tipo").grid(column=0, row=24, sticky=tk.W)
 tipo_var = tk.StringVar(root)
 tipo_var.set("")
-ttk.Combobox(frame_colonna5, textvariable=tipo_var, values=["", "F1", "F2", "F3", "F4", "PF1", "PF2", "PF3", "PF4", "SCORREVOLE", "SCORREVOLE TRASLANTE", "SCORREVOLE ALZANTE", "BLINDATA", "BLINDATA 2 ANTE", "PORTA D'INGRESSO", "PORTA VERANDA", "VASISTAS", "VASISTAS MOTORIZZATO"], width=2).grid(column=0, row=25, sticky=(tk.W, tk.E), padx=5, pady=5)
+ttk.Combobox(frame_colonna5, textvariable=tipo_var, values=["", "F1", "F2", "F3", "F4", "PF1", "PF2", "PF3", "PF4", "SCORREVOLE", "SCORREVOLE TRASLANTE", "SCORREVOLE ALZANTE", "BLINDATA", "BLINDATA 2 ANTE", "PORTA D'INGRESSO", "PORTA VERANDA", "VASISTAS", "VASISTAS MOTORIZZATO"], width=3).grid(column=0, row=25, sticky=(tk.W, tk.E), padx=5, pady=5)
 
 ttk.Label(frame_colonna6, text="L mm:").grid(column=0, row=0, sticky=tk.W)
 entry_L = ttk.Entry(frame_colonna6, width=5)
